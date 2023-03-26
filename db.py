@@ -28,6 +28,22 @@ def log_message(message):
     connection.commit()
 
 
-def log_privacy(id: int, id_type: str, time: str):
-    cursor.execute(f"INSERT OR REPLACE INTO privacy VALUES ({id}, {id_type}, {time})")
+def log_privacy(the_id: int, id_type: str, time: str):
+    cursor.execute(f"INSERT OR REPLACE INTO privacy VALUES ({the_id}, '{id_type}', '{time}')")
     connection.commit()
+
+
+def undo_privacy(the_id: int, id_type: str):
+    cursor.execute(f"DELETE FROM privacy WHERE id={the_id} AND id_type='{id_type}'")
+    connection.commit()
+
+
+def in_privacy(user_id: int, channel_id: int) -> bool:
+    cursor.execute("SELECT * FROM privacy")
+    results = cursor.fetchall()
+
+    for i in results:
+        if (i[1] == 'user' and i[0] == user_id) or (i[1] == 'channel' and i[0] == channel_id):
+            return True
+
+    return False

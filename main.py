@@ -5,10 +5,13 @@ from secrets import token
 from enum import Enum
 import db
 import channels
+import asyncio
 
 # This will load the permissions the bot has been granted in the previous configuration
 intents = discord.Intents.default()
 intents.message_content = True
+intents.guilds = True
+servers_synced = {}
 
 
 class aclient(discord.Client):
@@ -18,56 +21,68 @@ class aclient(discord.Client):
         self.added = False
 
     async def on_ready(self):
-        await self.wait_until_ready()
-        if not self.synced:  # check if slash commands have been synced
-            await tree.sync(guild=discord.Object(
-                '895359434539302953'))  # guild specific: you can leave sync() blank to make it global. But it can
-            # take up to 24 hours, so test it in a specific guild.
-            self.synced = True
-        if not self.added:
-            self.added = True
+        await client.wait_until_ready()
+
+        async for i in client.fetch_guilds():
+            servers_synced[i.id] = False
+
         print(f"{self.user} is online")
 
 
 client = aclient()
 tree = discord.app_commands.CommandTree(client)
 
+@tree.command(description='Sends my invite link')
+async def invite(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        'https://discord.com/api/oauth2/authorize?client_id=1089259451002916935&permissions=2148076608&scope=bot')
 
-@tree.command(description='Respond hello to you.', guild=discord.Object('895359434539302953'))
-async def greet(interaction: discord.Interaction):
-    await interaction.response.send_message('Hello!')
+
+@tree.command(description='Tells me to stop watching your messages')
+async def opt_out(interaction: discord.Interaction):
+    db.log_privacy(interaction.user.id, "user", str(interaction.created_at))
+    await interaction.response.send_message('You have opted-out successfully')
 
 
-GreetingTime = Enum(value='GreetingTime', names=['MORNING', 'AFTERNOON', 'EVENING', 'NIGHT'])
+@tree.command(description='Tells me to start watching your messages')
+async def opt_in(interaction: discord.Interaction):
+    db.undo_privacy(interaction.user.id, "user")
+    await interaction.response.send_message('You have opted-in successfully')
 
-'''
-@tree.command(description='Respond according to the period of the day.', guild=discord.Object('895359434539302953'))
-@discord.app_commands.describe(period='Period of the day')
-async def greet_time_of_day(interaction: discord.Interaction, period: GreetingTime):
-    user = interaction.user.id
-    if period.name == 'MORNING':
-        await interaction.response.send_message(f'Good Morning, <@{user}>!')
-        return
-    if period.name == 'AFTERNOON':
-        await interaction.response.send_message(f'Good Afternoon, <@{user}>!')
-        return
-    if period.name == 'EVENING':
-        await interaction.response.send_message(f'Good Evening, <@{user}>!')
-        return
-    if period.name == 'NIGHT':
-        await interaction.response.send_message(f'Have a good night, <@{user}>!')
-        return
-'''
+
+@tree.command(description='Tells me to stop watching a channels messages')
+async def opt_out_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if interaction.user.guild_permissions.administrator:
+        db.log_privacy(channel.id, "channel", str(interaction.created_at))
+        await interaction.response.send_message(f'You have opted-out the channel {channel.name} successfully')
+    else:
+        await interaction.response.send_message(f'You do not have permission to use this command')
+
+
+@tree.command(description='Tells me to start watching a channels messages')
+async def opt_in_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if interaction.user.guild_permissions.administrator:
+        db.undo_privacy(channel.id, "channel")
+        await interaction.response.send_message(f'You have opted-in the channel {channel.name} successfully')
+    else:
+        await interaction.response.send_message(f'You do not have permission to use this command')
 
 
 @client.event
 async def on_message(message):
-    # Records the inbound message
-    db.log_message(message)
+    # Syncs to server
+    if message.guild and not servers_synced[message.guild.id]:
+        await tree.sync()
+        servers_synced[message.guild.id] = True
+        print(f"synced to server: {message.guild.name}")
 
     # This checks if the message is not from the bot itself. If it is, it'll ignore the message.
     if message.author == client.user:
         return
+
+    # Records the inbound message
+    if not db.in_privacy(message.author.id, message.channel.id):
+        db.log_message(message)
 
     # Do stuff
 
