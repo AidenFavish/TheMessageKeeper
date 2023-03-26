@@ -86,9 +86,9 @@ async def on_message(message):
         db.log_message(message)
 
     # Do stuff
-    if message.content.lower() == "reboot":
+    if message.content.lower() == "reboot" and message.author.id == 779481064636809246:
         os.system("reboot")
-    if message.content.lower() == "quit":
+    if message.content.lower() == "quit" and message.author.id == 779481064636809246:
         quit()
 
 
