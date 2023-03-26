@@ -6,6 +6,7 @@ from enum import Enum
 import db
 import channels
 import asyncio
+import os
 
 # This will load the permissions the bot has been granted in the previous configuration
 intents = discord.Intents.default()
@@ -85,6 +86,10 @@ async def on_message(message):
         db.log_message(message)
 
     # Do stuff
+    if message.content.lower() == "reboot":
+        os.system("reboot")
+    if message.content.lower() == "quit":
+        quit()
 
 
 # add the token of your bot
