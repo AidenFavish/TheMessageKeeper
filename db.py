@@ -2,7 +2,7 @@ import sqlite3
 import channels
 
 # Define connection and cursor
-connection = sqlite3.connect('~/home/ubuntu/myPrograms/TheMessageKeeper/discord_record1.db')
+connection = sqlite3.connect('/home/ubuntu/myPrograms/TheMessageKeeper/discord_record.db')
 cursor = connection.cursor()
 
 # Create stores table
